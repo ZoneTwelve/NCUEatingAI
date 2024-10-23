@@ -25,7 +25,7 @@ if isinstance(_DEFAULT_ROLE, str) and _DEFAULT_ROLE in _ALLOWED_ROLES:
 def chat_with_ncueatingai(
     prompt: str = "What's for lunch?",
     system_prompt: str = "You act like a @ZoneTwelve.",
-    max_tokens: int = 64,
+    max_tokens: int = 128,
 ):
     """Generate a response from the NCUEatingAI model based on the user input."""
     # Prepare the chat messages
@@ -41,17 +41,20 @@ def chat_with_ncueatingai(
     inputs = tokenizer(input_text, return_tensors="pt")
 
     # Generate response
-    with torch.no_grad():
-        outputs = model.generate(
-            inputs.input_ids,
-            max_length=max_tokens,
-            pad_token_id=tokenizer.eos_token_id,
-            do_sample=True,
-            temperature=1.15,
-        )
+    try:
+      with torch.no_grad():
+          outputs = model.generate(
+              inputs.input_ids,
+              max_length=max_tokens,
+              pad_token_id=tokenizer.eos_token_id,
+              do_sample=True,
+              temperature=1.15,
+          )
 
-    # Decode the response
-    response = tokenizer.decode(outputs[0][:-1], skip_special_tokens=False)
+      # Decode the response
+      response = tokenizer.decode(outputs[0][:-1], skip_special_tokens=False)
+    except ValueError as e:
+      response = "Oops, I can not process that."
     return response.replace(input_text, "")
 
 # Define a command handler for the /start command
@@ -90,15 +93,29 @@ async def role_command(update: Update, context) -> None:
 async def ai_response(update: Update, context) -> None:
     """Generate AI-based response for the user message."""
     user_message = update.message.text
+    print("User message", user_message)
 
     # Use the current role to adjust the system prompt
     system_prompt = f"You act like a {current_role}."
-    
+
     # Generate the response using the chat_with_ncueatingai function
     ai_reply = chat_with_ncueatingai(prompt=user_message, system_prompt=system_prompt)
 
     # Send the AI-generated reply back to the user
     await update.message.reply_text(f"[{current_role.replace('@', '')}]\n{ai_reply}")
+
+async def reply_commnad(update: Update, context):
+    if update.message.reply_to_message:
+        original_message = update.message.reply_to_message.text
+
+        # Use the current role to adjust the system prompt
+        system_prompt = f"You act like a {current_role}."
+
+        # Generate the response using the chat_with_ncueatingai function
+        ai_reply = chat_with_ncueatingai(prompt=original_message, system_prompt=system_prompt)
+
+        # Send the AI-generated reply back to the user
+        await update.message.reply_text(f"[{current_role.replace('@', '')}]\n{ai_reply}")
 
 # Main function to set up the bot
 def main():
@@ -110,13 +127,14 @@ def main():
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("help", help_command))
     application.add_handler(CommandHandler("role", role_command))  # Handler for /role command
+    application.add_handler(CommandHandler("reply", reply_command))
 
     # Add a handler for text messages and AI response
-    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, ai_response))
+    #application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, ai_response))
+    application.add_handler(MessageHandler(filters.TEXT, ai_response))
 
     # Start the bot
     application.run_polling()
 
 if __name__ == '__main__':
     main()
-
