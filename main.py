@@ -104,7 +104,7 @@ async def ai_response(update: Update, context) -> None:
     # Send the AI-generated reply back to the user
     await update.message.reply_text(f"[{current_role.replace('@', '')}]\n{ai_reply}")
 
-async def reply_commnad(update: Update, context):
+async def reply_command(update: Update, context):
     if update.message.reply_to_message:
         original_message = update.message.reply_to_message.text
 
