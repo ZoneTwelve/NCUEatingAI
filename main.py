@@ -42,19 +42,19 @@ def chat_with_ncueatingai(
 
     # Generate response
     try:
-      with torch.no_grad():
-          outputs = model.generate(
-              inputs.input_ids,
-              max_length=max_tokens,
-              pad_token_id=tokenizer.eos_token_id,
-              do_sample=True,
-              temperature=1.15,
-          )
+        with torch.no_grad():
+            outputs = model.generate(
+                inputs.input_ids,
+                max_length=max_tokens,
+                pad_token_id=tokenizer.eos_token_id,
+                do_sample=True,
+                temperature=1.15,
+            )
 
-      # Decode the response
-      response = tokenizer.decode(outputs[0][:-1], skip_special_tokens=False)
+        # Decode the response
+        response = tokenizer.decode(outputs[0][:-1], skip_special_tokens=False)
     except ValueError as e:
-      response = "Oops, I can not process that."
+        response = "Oops, I can not process that."
     return response.replace(input_text, "")
 
 # Define a command handler for the /start command
@@ -105,17 +105,26 @@ async def ai_response(update: Update, context) -> None:
     await update.message.reply_text(f"[{current_role.replace('@', '')}]\n{ai_reply}")
 
 async def reply_command(update: Update, context):
+    """Reply to the original message that the /reply command is replying to."""
     if update.message.reply_to_message:
+        # Get the original message being replied to
         original_message = update.message.reply_to_message.text
 
         # Use the current role to adjust the system prompt
         system_prompt = f"You act like a {current_role}."
 
-        # Generate the response using the chat_with_ncueatingai function
+        # Generate the AI response based on the original message
         ai_reply = chat_with_ncueatingai(prompt=original_message, system_prompt=system_prompt)
 
-        # Send the AI-generated reply back to the user
-        await update.message.reply_text(f"[{current_role.replace('@', '')}]\n{ai_reply}")
+        # Send the AI-generated reply back to the original message
+        await context.bot.send_message(
+            chat_id=update.effective_chat.id,
+            text=f"[{current_role.replace('@', '')}]\n{ai_reply}",
+            reply_to_message_id=update.message.reply_to_message.message_id  # Reply directly to the original message
+        )
+    else:
+        # If the command wasn't a reply to a message, notify the user
+        await update.message.reply_text("Please use /reply in response to a specific message.")
 
 # Main function to set up the bot
 def main():
@@ -130,7 +139,6 @@ def main():
     application.add_handler(CommandHandler("reply", reply_command))
 
     # Add a handler for text messages and AI response
-    #application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, ai_response))
     application.add_handler(MessageHandler(filters.TEXT, ai_response))
 
     # Start the bot
@@ -138,3 +146,4 @@ def main():
 
 if __name__ == '__main__':
     main()
+
